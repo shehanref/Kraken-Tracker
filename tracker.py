@@ -23,7 +23,7 @@ def run():
 
 def keep_alive():
     t = Thread(target=run)
-    t.daemon = True # থ্রেডটিকে ডেমোন হিসেবে সেট করা হলো
+    t.daemon = True 
     t.start()
 
 init(autoreset=True)
@@ -47,6 +47,7 @@ def log_hacker(msg, type="sys"):
 
 # --- SECURITY CHECK ---
 async def is_authorized(update: Update):
+    if not update.effective_chat or not update.effective_user: return False
     chat_type = update.effective_chat.type
     user_id = update.effective_user.id
     if chat_type == "private":
@@ -183,21 +184,18 @@ async def cmd_indiv_vol_23(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 date = datetime.fromtimestamp(d[0]).strftime('%d %b')
                 ami = float(d[6])
                 total += ami
-                msg += f"• `{date}`: `{ami:,.0f} AMI`\n"
+                msg += f"• `{date}`: `{ami:,.0f} AMI` \n"
         msg += f"\n🏆 *Cumulative: `${total * price:,.2f}`*"
         await update.message.reply_text(msg)
 
 if __name__ == '__main__':
     log_hacker("CORE INITIALIZED", "sys")
-    
-    # বোট শুরু করার আগে Keep Alive সার্ভার চালু করা হলো
     keep_alive()
     
-    # Builder-এ .job_queue() যুক্ত করা হয়েছে
-    # Timeouts বাড়ানো হয়েছে যাতে কানেকশন ড্রপ না হয়
+    # FIXED: ApplicationBuilder.job_queue() এরর ফিক্স করতে এটি সরাসরি কল করা হয়েছে।
+    # build() এর পর এটি অটোমেটিক পাওয়া যায়।
     app = Application.builder() \
         .token(TOKEN) \
-        .job_queue() \
         .connect_timeout(40) \
         .read_timeout(40) \
         .write_timeout(40) \
@@ -205,8 +203,12 @@ if __name__ == '__main__':
         .defaults(Defaults(parse_mode='Markdown')) \
         .build()
     
-    # ড্যাশবোর্ড আপডেট শিডিউলার
-    app.job_queue.run_repeating(lambda c: update_dashboard(c), interval=600, first=10)
+    # ড্যাশবোর্ড আপডেট শিডিউলার শুরু করুন যদি job_queue অ্যাভেলেবল থাকে
+    if app.job_queue:
+        app.job_queue.run_repeating(lambda c: update_dashboard(c), interval=600, first=10)
+        log_hacker("JOB QUEUE STARTED", "sys")
+    else:
+        log_hacker("JOB QUEUE NOT AVAILABLE - CHECK REQUIREMENTS.TXT", "sell")
     
     # কমান্ড হ্যান্ডলারসমূহ
     app.add_handler(CommandHandler("start", start))
