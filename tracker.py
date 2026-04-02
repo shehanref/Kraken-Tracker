@@ -17,7 +17,6 @@ def home():
     return "AMI Terminal is Online"
 
 def run():
-    # Render provides a PORT environment variable
     port = int(os.environ.get('PORT', 8080))
     server.run(host='0.0.0.0', port=port)
 
@@ -27,7 +26,7 @@ def keep_alive():
 
 init(autoreset=True)
 
-# --- CONFIGURATION (Environment Variables) ---
+# --- CONFIGURATION ---
 TOKEN = os.environ.get("BOT_TOKEN")
 PAIR = "AMIUSD"
 MARCH_23_TS = 1711152000 
@@ -188,12 +187,16 @@ async def cmd_indiv_vol_23(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     log_hacker("CORE INITIALIZED", "sys")
-    
-    # Keep alive server start
     keep_alive()
     
-    # Increased timeouts for more stability on Render
-    app = Application.builder().token(TOKEN).connect_timeout(30).read_timeout(30).defaults(Defaults(parse_mode='Markdown')).build()
+    # CRITICAL FIX: Added .job_queue() to the builder
+    app = Application.builder() \
+        .token(TOKEN) \
+        .job_queue() \
+        .connect_timeout(30) \
+        .read_timeout(30) \
+        .defaults(Defaults(parse_mode='Markdown')) \
+        .build()
     
     app.job_queue.run_repeating(lambda c: update_dashboard(c), interval=600, first=5)
     
