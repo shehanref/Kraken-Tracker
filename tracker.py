@@ -1,6 +1,7 @@
 import logging
 import requests
 import os
+import asyncio
 from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, Defaults
@@ -8,15 +9,17 @@ from colorama import init, Fore, Style
 from flask import Flask
 from threading import Thread
 
-# Flask Server for Render Keep-Alive
+# Flask server for Render keep-alive
 server = Flask('')
 
 @server.route('/')
 def home():
-    return "Terminal Online"
+    return "AMI Terminal is Online"
 
 def run():
-    server.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    # Render provides a PORT environment variable
+    port = int(os.environ.get('PORT', 8080))
+    server.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run)
@@ -24,7 +27,7 @@ def keep_alive():
 
 init(autoreset=True)
 
-# --- CONFIGURATION (Loaded from Environment Variables) ---
+# --- CONFIGURATION (Environment Variables) ---
 TOKEN = os.environ.get("BOT_TOKEN")
 PAIR = "AMIUSD"
 MARCH_23_TS = 1711152000 
@@ -179,17 +182,19 @@ async def cmd_indiv_vol_23(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 date = datetime.fromtimestamp(d[0]).strftime('%d %b')
                 ami = float(d[6])
                 total += ami
-                msg += f"• `{date}`: `{ami:,.0f} AMI` \n"
+                msg += f"• `{date}`: `{ami:,.0f} AMI`\n"
         msg += f"\n🏆 *Cumulative: `${total * price:,.2f}`*"
         await update.message.reply_text(msg)
 
 if __name__ == '__main__':
     log_hacker("CORE INITIALIZED", "sys")
     
-    # Start Keep-Alive Server
+    # Keep alive server start
     keep_alive()
     
-    app = Application.builder().token(TOKEN).defaults(Defaults(parse_mode='Markdown')).build()
+    # Increased timeouts for more stability on Render
+    app = Application.builder().token(TOKEN).connect_timeout(30).read_timeout(30).defaults(Defaults(parse_mode='Markdown')).build()
+    
     app.job_queue.run_repeating(lambda c: update_dashboard(c), interval=600, first=5)
     
     app.add_handler(CommandHandler("start", start))
