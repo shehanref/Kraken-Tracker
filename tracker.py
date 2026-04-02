@@ -17,11 +17,13 @@ def home():
     return "AMI Terminal is Online"
 
 def run():
-    port = int(os.environ.get('PORT', 8080))
+    # রেন্ডার PORT ইনভারনমেন্ট ভেরিয়েবল ব্যবহার করে, ডিফল্ট ১০০০০
+    port = int(os.environ.get('PORT', 10000))
     server.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run)
+    t.daemon = True # থ্রেডটিকে ডেমোন হিসেবে সেট করা হলো
     t.start()
 
 init(autoreset=True)
@@ -187,19 +189,26 @@ async def cmd_indiv_vol_23(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     log_hacker("CORE INITIALIZED", "sys")
+    
+    # বোট শুরু করার আগে Keep Alive সার্ভার চালু করা হলো
     keep_alive()
     
-    # CRITICAL FIX: Added .job_queue() to the builder
+    # Builder-এ .job_queue() যুক্ত করা হয়েছে
+    # Timeouts বাড়ানো হয়েছে যাতে কানেকশন ড্রপ না হয়
     app = Application.builder() \
         .token(TOKEN) \
         .job_queue() \
-        .connect_timeout(30) \
-        .read_timeout(30) \
+        .connect_timeout(40) \
+        .read_timeout(40) \
+        .write_timeout(40) \
+        .pool_timeout(40) \
         .defaults(Defaults(parse_mode='Markdown')) \
         .build()
     
-    app.job_queue.run_repeating(lambda c: update_dashboard(c), interval=600, first=5)
+    # ড্যাশবোর্ড আপডেট শিডিউলার
+    app.job_queue.run_repeating(lambda c: update_dashboard(c), interval=600, first=10)
     
+    # কমান্ড হ্যান্ডলারসমূহ
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("trader", cmd_trader))
     app.add_handler(CommandHandler("allday", cmd_allday))
@@ -208,4 +217,5 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("indiv_vol_23", cmd_indiv_vol_23))
     app.add_handler(CommandHandler("status", lambda u, c: update_dashboard(c, u.effective_chat.id)))
     
-    app.run_polling()
+    log_hacker("POLLING STARTED...", "sys")
+    app.run_polling(drop_pending_updates=True)
